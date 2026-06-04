@@ -1,0 +1,71 @@
+{
+  "posts": [
+    {
+      "id": 1,
+      "title": "Post 1",
+      "source": "ai",
+      "action": "generated",
+      "date": "2026-06-03",
+      "datetime": "2026-06-04T00:54:48.828122"
+    },
+    {
+      "id": 2,
+      "title": "Post 2",
+      "source": "ai",
+      "action": "generated",
+      "date": "2026-06-03",
+      "datetime": "2026-06-04T00:54:48.830121"
+    },
+    {
+      "id": 1,
+      "title": "Post 1",
+      "action": "published",
+      "date": "2026-06-03",
+      "datetime": "2026-06-04T00:54:48.832546"
+    },
+    {
+      "id": 3,
+      "title": "Post 3",
+      "source": "ai",
+      "action": "generated",
+      "date": "2026-06-02",
+      "datetime": "2026-06-04T00:54:48.834070"
+    },
+    {
+      "id": 2,
+      "title": "Post 2",
+      "action": "published",
+      "date": "2026-06-02",
+      "datetime": "2026-06-04T00:54:48.835068"
+    },
+    {
+      "id": 5,
+      "title": "Post 5",
+      "source": "ai",
+      "action": "generated",
+      "date": "2026-06-04",
+      "datetime": "2026-06-04T00:54:48.837069"
+    },
+    {
+      "id": 4,
+      "title": "AI Generated Post",
+      "source": "ai",
+      "action": "generated",
+      "date": "2026-06-04",
+      "datetime": "2026-06-04T01:10:27.018852"
+    },
+    {
+      "id": 1,
+      "title": "AI Generated Post",
+      "source": "ai",
+      "action": "generated",
+      "date": "2026-06-04",
+      "datetime": "2026-06-04T01:19:54.531844"
+    }
+  ],
+  "generation_count": 6,
+  "publish_count": 2,
+  "streak": 1,
+  "last_post_date": "2026-06-02",
+  "last_generation_date": "2026-06-04"
+}

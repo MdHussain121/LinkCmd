@@ -1,0 +1,7 @@
+{
+  "ai_enabled": true,
+  "auto_suggest_hashtags": true,
+  "default_style": "tip",
+  "show_emojis": true,
+  "daily_reminder": false
+}

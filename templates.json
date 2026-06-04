@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Learning Share",
+    "prompt": "Something I learned recently about {topic}: {insight}.\n\nI used to think {old_belief}, but now I see {new_belief}.\n\nWhat's a belief you've reconsidered lately?\n\n#Learning #Growth",
+    "category": "Insight"
+  },
+  {
+    "name": "Tool Recommendation",
+    "prompt": "I've been using {tool_name} for {use_case} and honestly it's been a game-changer.\n\nThe biggest benefit: {benefit}.\n\nIf you work in {field}, I'd recommend giving it a try.\n\nWhat tools are you loving right now?\n\n#TechTools #Productivity #CareerTips",
+    "category": "Recommendation"
+  },
+  {
+    "name": "Project Update",
+    "prompt": "Finished up {project_name} this week. Here's what I learned:\n\n{takeaway_1}\n{takeaway_2}\n\nThe part I'm most proud of: {proud_of}.\n\nAlways building, always learning.\n\n#Projects #SoftwareDevelopment #Wins",
+    "category": "Update"
+  },
+  {
+    "name": "Career Reflection",
+    "prompt": "Something I wish I knew {years_ago} years ago when I started in {field}:\n\n{lesson_1}\n{lesson_2}\n\nTo anyone just starting out — you're further along than you think. Keep going.\n\n#CareerTips #Mentorship #ProfessionalGrowth",
+    "category": "Reflection"
+  },
+  {
+    "name": "Hot Take / Discussion",
+    "prompt": "Unpopular opinion in {industry}:\n\n{opinion}\n\nI'll take the counterpoint — {reasoning}.\n\nChange my mind. 😄\n\n#HotTake #Discussion #Industry",
+    "category": "Opinion"
+  },
+  {
+    "name": "Gratitude / Shoutout",
+    "prompt": "Shoutout to {person_or_team} for {reason}.\n\nIt made a real difference. Grateful to work alongside people who bring this kind of energy.\n\nIf someone helped you this week, drop a comment and tag them. Recognition matters.\n\n#Gratitude #Teamwork #Culture",
+    "category": "Gratitude"
+  }
+]

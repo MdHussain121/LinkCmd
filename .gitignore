@@ -1,0 +1,27 @@
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local database & configuration (Contains private drafts and API Keys)
+nim_config.json
+posts.json
+memory/*.json
+
+# Keep memory module init in source control
+!memory/__init__.py
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+.env
+
+# Backups, logs, and test residue
+*.bak
+*.tmp
+*.log
+*test_backup*
+*tmp_test_backup*

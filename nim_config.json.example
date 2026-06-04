@@ -1,0 +1,15 @@
+{
+  "api_key": "nvapi-YOUR_NVIDIA_NIM_API_KEY_HERE",
+  "base_url": "https://integrate.api.nvidia.com/v1",
+  "text_model": "meta/llama-3.3-70b-instruct",
+  "vision_model": "meta/llama-3.2-90b-vision-instruct",
+  "image_model": "stable-diffusion-xl",
+  "profile_context": {
+    "name": "",
+    "role": "",
+    "field": "",
+    "interests": [],
+    "recent_work": [],
+    "tone": "professional but approachable"
+  }
+}
