@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-LinkedIn Post Manager — Rich UI Edition.
+LinkCommand — Rich UI Edition.
 
 A feature-complete CLI manager for creating, scheduling, and tracking LinkedIn
 posts, powered by the NVIDIA NIM (Llama) API for AI-assisted generation.
@@ -37,13 +37,13 @@ nim_config.json            NIM API credentials and profile_context for the
 Usage
 -----
     # Start interactive menu:
-    python linkedin_manager.py
+    python linkcmd.py
 
     # Direct CLI (power-user mode):
-    python linkedin_manager.py generate --topic "AI" --style tip
-    python linkedin_manager.py list
-    python linkedin_manager.py view 3
-    python linkedin_manager.py publish 2
+    python linkcmd.py generate --topic "AI" --style tip
+    python linkcmd.py list
+    python linkcmd.py view 3
+    python linkcmd.py publish 2
 """
 
 from __future__ import annotations
@@ -172,7 +172,7 @@ def _run_onboarding(store: Store) -> None:
     console.clear()
     console.print(
         Panel.fit(
-            "[bold cyan]Welcome to LinkedIn Post Manager![/bold cyan]\n\n"
+            "[bold cyan]Welcome to LinkCommand![/bold cyan]\n\n"
             "Let's set up your profile so AI-generated posts feel personal.\n"
             "You can always change these later in Settings.",
             border_style=C_HEAD,
@@ -888,7 +888,7 @@ def _cmd_help() -> None:
     """Display a full help / navigation guide."""
     console.clear()
     help_text = (
-        "[bold cyan]LinkedIn Post Manager — Help & Guide[/bold cyan]\n\n"
+        "[bold cyan]LinkCommand — Help & Guide[/bold cyan]\n\n"
         "[bold]Navigating Menus[/bold]\n"
         "  Type the option number and press Enter.\n"
         "  Press Enter on an empty prompt to cancel/go back.\n"
@@ -952,14 +952,14 @@ def _cmd_help() -> None:
 
         "[bold]Power Mode (CLI)[/bold]\n"
         "  Skip the menu entirely:\n"
-        "    python linkedin_manager.py generate   --topic \"AI\" --style tip\n"
-        "    python linkedin_manager.py list\n"
-        "    python linkedin_manager.py view       --id 3\n"
-        "    python linkedin_manager.py publish    --id 2\n"
-        "    python linkedin_manager.py templates\n"
-        "    python linkedin_manager.py week\n"
-        "    python linkedin_manager.py stats\n"
-        "    python linkedin_manager.py settings\n\n"
+        "    python linkcmd.py generate   --topic \"AI\" --style tip\n"
+        "    python linkcmd.py list\n"
+        "    python linkcmd.py view       --id 3\n"
+        "    python linkcmd.py publish    --id 2\n"
+        "    python linkcmd.py templates\n"
+        "    python linkcmd.py week\n"
+        "    python linkcmd.py stats\n"
+        "    python linkcmd.py settings\n\n"
 
         "[bold]Tip[/bold]\n"
         "  You can also set your API key via the environment variable\n"
@@ -1092,8 +1092,8 @@ def _cmd_templates(store: Optional[Store] = None) -> None:
 
 def _build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="linkedin_manager.py",
-        description="LinkedIn Post Manager — Rich CLI",
+        prog="linkcmd.py",
+        description="LinkCommand — Rich CLI",
         add_help=True,
     )
     p.add_argument("command", nargs="?", default=None,
@@ -1152,7 +1152,7 @@ def _interactive_menu(store: Store, nim_client: Optional[NIMClient]) -> None:
         console.print(
             Panel(
                 menu_text,
-                title="[bold cyan]LinkedIn Post Manager[/bold cyan]",
+                title="[bold cyan]LinkCommand[/bold cyan]",
                 border_style=C_HEAD,
                 padding=(1, 3),
             )

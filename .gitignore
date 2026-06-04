@@ -7,7 +7,7 @@ __pycache__/
 # Local database & configuration (Contains private drafts and API Keys)
 nim_config.json
 posts.json
-memory/*.json
+memory/**/*.json
 
 # Keep memory module init in source control
 !memory/__init__.py

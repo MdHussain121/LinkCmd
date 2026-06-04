@@ -1,4 +1,4 @@
-# 📝 LinkedIn Post Manager (Rich TUI & CLI Edition)
+# 📝 LinkCommand (Rich TUI & CLI Edition)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
@@ -25,8 +25,8 @@ A feature-complete terminal application for creating, scheduling, and tracking L
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/linkedin-post-manager.git
-   cd linkedin-post-manager
+   git clone https://github.com/yourusername/linkcommand.git
+   cd linkcommand
    ```
 
 2. **Install dependencies:**
@@ -46,7 +46,7 @@ To ensure your API credentials **never get leaked** to public repositories, the 
 You can set your API key in three safe ways:
 
 ### Option A: The Settings Menu (Recommended)
-1. Run the manager: `python linkedin_manager.py`
+1. Run the manager: `python linkcmd.py`
 2. Select Option **7** (Settings).
 3. Select Option **K** (Set NIM API Key) and paste your key.
 4. The application will automatically create and populate `nim_config.json` locally.
@@ -62,13 +62,13 @@ You can set your API key in three safe ways:
 You can export the environment variable `NIM_API_KEY` before running:
 
 * **Windows PowerShell:**
-  ```powershell
-  $env:NIM_API_KEY="nvapi-YourKeyHere"
-  ```
+   ```powershell
+   $env:NIM_API_KEY="nvapi-YourKeyHere"
+   ```
 * **Linux/macOS Bash:**
-  ```bash
-  export NIM_API_KEY="nvapi-YourKeyHere"
-  ```
+   ```bash
+   export NIM_API_KEY="nvapi-YourKeyHere"
+   ```
 
 ---
 
@@ -79,7 +79,7 @@ The project supports two main operating modes:
 ### 1. Interactive Menu (TUI)
 Launch the interactive dashboard to manage drafts, templates, planners, and settings:
 ```bash
-python linkedin_manager.py
+python linkcmd.py
 ```
 
 ### 2. Direct CLI Sub-commands (Power-User Mode)
@@ -87,30 +87,30 @@ Skip the interactive menu and run commands directly from your terminal:
 
 * **AI Generation:**
   ```bash
-  python linkedin_manager.py generate --topic "Clean Code principles" --style tip
+  python linkcmd.py generate --topic "Clean Code principles" --style tip
   ```
 * **Manual Drafting:**
   ```bash
-  python linkedin_manager.py write
+  python linkcmd.py write
   ```
 * **List Drafts/Published:**
   ```bash
-  python linkedin_manager.py list
+  python linkcmd.py list
   ```
 * **View a specific post:**
   ```bash
-  python linkedin_manager.py view --id 3
+  python linkcmd.py view --id 3
   ```
 * **Mark a post as published:**
   ```bash
-  python linkedin_manager.py publish --id 3
+  python linkcmd.py publish --id 3
   ```
 * **Check planner, stats, templates, or help:**
   ```bash
-  python linkedin_manager.py week
-  python linkedin_manager.py stats
-  python linkedin_manager.py templates
-  python linkedin_manager.py help
+  python linkcmd.py week
+  python linkcmd.py stats
+  python linkcmd.py templates
+  python linkcmd.py help
   ```
 
 ---
@@ -118,7 +118,7 @@ Skip the interactive menu and run commands directly from your terminal:
 ## 📂 Project Structure
 
 ```
-├── linkedin_manager.py     # Main TUI loop, CLI argument dispatcher, and UI menus
+├── linkcmd.py              # Main TUI loop, CLI argument dispatcher, and UI menus
 ├── nim_client.py           # OpenAI-compatible API wrapper with custom prompt rules
 ├── nim_config.json.example # Template file showing required API configuration layout
 ├── requirements.txt        # Third-party dependency definitions

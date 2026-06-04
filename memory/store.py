@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Memory Store — JSON-backed persistence for the LinkedIn Post Manager.
+Memory Store — JSON-backed persistence for LinkCommand.
 
 Provides a :class:`Store` facade over three JSON files:
 
