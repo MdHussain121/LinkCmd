@@ -25,7 +25,7 @@ from typing import Any, Optional
 # Paths
 # ---------------------------------------------------------------------------
 _HERE = Path(__file__).resolve()
-PROJECT_ROOT = _HERE.parent
+PROJECT_ROOT = _HERE.parent.parent
 
 PROFILE_PATH  = PROJECT_ROOT / "memory" / "user_profile.json"
 HISTORY_PATH  = PROJECT_ROOT / "memory" / "post_history.json"
@@ -114,6 +114,7 @@ class Store:
         self._profile: dict[str, Any] = _read(PROFILE_PATH, dict(_DEFAULT_PROFILE))
         self._prefs: dict[str, Any]   = _read(PREFS_PATH,   dict(_DEFAULT_PREFS))
         self._history: dict[str, Any] = _read(HISTORY_PATH,  dict(_DEFAULT_HISTORY))
+        self._check_decay_streak()
 
     # -- profile ------------------------------------------------------------
 
@@ -174,6 +175,31 @@ class Store:
             "last_post_date":    h.get("last_post_date"),
             "last_generation":   h.get("last_generation_date"),
         }
+
+    def _check_decay_streak(self) -> None:
+        """Decay streak to 0 if the last activity was more than 1 day ago."""
+        today = date.today().isoformat()
+        dates = []
+        if self._history.get("last_generation_date"):
+            dates.append(self._history["last_generation_date"])
+        if self._history.get("last_post_date"):
+            dates.append(self._history["last_post_date"])
+
+        if dates:
+            last_act = max(dates)
+            if last_act != today:
+                try:
+                    gap = (date.fromisoformat(today) - date.fromisoformat(last_act)).days
+                    if gap > 1:
+                        self._history["streak"] = 0
+                        _write(HISTORY_PATH, self._history)
+                except ValueError:
+                    self._history["streak"] = 0
+                    _write(HISTORY_PATH, self._history)
+        else:
+            if self._history.get("streak", 0) > 0:
+                self._history["streak"] = 0
+                _write(HISTORY_PATH, self._history)
 
     def _update_streak(self, today: str) -> None:
         """Helper to compute streak based on daily activity (generation or publishing)."""

@@ -478,14 +478,31 @@ def _cmd_view_drafts(store: Store) -> None:
     actions_table.add_column("action")
     actions_table.add_row("p", "Mark as published")
     actions_table.add_row("d", "Delete this post")
+    
+    nim_client = _load_nim_client(store)
+    if nim_client is not None:
+        actions_table.add_row("i", "AI Improve Post")
+        actions_table.add_row("v", "AI Variations")
+        actions_table.add_row("g", "AI Image Options")
+        
     actions_table.add_row("Enter", "Back")
     console.print(actions_table)
 
-    choice = Prompt.ask("Action", choices=["p", "d", ""], default="", console=console)
+    choices = ["p", "d", ""]
+    if nim_client is not None:
+        choices.extend(["i", "v", "g"])
+
+    choice = Prompt.ask("Action", choices=choices, default="", console=console)
     if choice == "p":
         _cmd_publish(post, store)
     elif choice == "d":
         _cmd_delete(post, store)
+    elif choice == "i" and nim_client is not None:
+        _cmd_improve_post(post, store, nim_client)
+    elif choice == "v" and nim_client is not None:
+        _cmd_generate_variations(post, store, nim_client)
+    elif choice == "g" and nim_client is not None:
+        _cmd_image_options(post, store, nim_client)
 
 
 def _cmd_weekly_planner(store: Store) -> None:
@@ -836,6 +853,381 @@ def _cmd_delete(post: dict, store: Store) -> None:
     _save_posts(posts)
     console.print(f"[{C_ERR}]Post #{pid} deleted.[/{C_ERR}]")
 
+def _cmd_improve_post(post: dict, store: Store, nim_client: NIMClient) -> None:
+    """Improve the post draft using AI, displaying recommendations and comparing versions."""
+    console.print()
+    with console.status(
+        f"[bold {C_AI}]Analyzing draft and gathering recommendations...[/bold {C_AI}]",
+        spinner="dots",
+    ):
+        try:
+            result = nim_client.improve_post(post["content"])
+        except Exception as exc:
+            console.print(f"[{C_ERR}]Improvement call failed: {exc}[/{C_ERR}]")
+            return
+
+    if not result or "error" in result:
+        console.print(f"[{C_ERR}]Could not improve post:[/{C_ERR}] {result.get('error', 'Unknown error')}")
+        if "raw_response" in result:
+            console.print(Panel(result["raw_response"], title="Raw AI Response"))
+        return
+
+    score = result.get("score", "N/A")
+    suggestions = result.get("suggestions", [])
+    improved_content = result.get("improved_post", "")
+
+    # Display score and suggestions
+    console.print(Panel(f"[bold]Engagement Score Suggestion: {score}/10[/bold]", border_style=C_HEAD))
+    
+    if suggestions:
+        s_table = Table(title="[bold cyan]Improvement Suggestions[/bold cyan]", box=box.ROUNDED, expand=True)
+        s_table.add_column("Area", style="bold magenta", width=12)
+        s_table.add_column("Current", style=C_ERR, width=25)
+        s_table.add_column("Suggestion", style=C_SUCC, width=25)
+        s_table.add_column("Reason", style=C_DIM)
+        for s in suggestions:
+            s_table.add_row(
+                str(s.get("area", "N/A")),
+                str(s.get("current", "N/A")),
+                str(s.get("suggestion", "N/A")),
+                str(s.get("reason", "N/A")),
+            )
+        console.print(s_table)
+        console.print()
+
+    # Show Side-by-Side/Sequential Comparison
+    comparison = Table(show_header=True, box=box.ROUNDED, expand=True)
+    comparison.add_column("Original Draft", style=C_DIM)
+    comparison.add_column("AI Improved Version", style="white")
+    comparison.add_row(Markdown(post["content"]), Markdown(improved_content))
+    console.print(comparison)
+    console.print()
+
+    # Offer replacement or new draft options
+    console.print("[bold]Options:[/bold]")
+    console.print("  [bold cyan]1[/bold cyan]: Replace current draft content with improved version")
+    console.print("  [bold cyan]2[/bold cyan]: Save improved version as a new draft")
+    console.print("  [bold cyan]3[/bold cyan]: Cancel (keep current draft as-is)")
+    
+    action = Prompt.ask("Choose action", choices=["1", "2", "3"], default="3", console=console)
+    if action == "1":
+        posts = _load_posts()
+        pid = int(post.get("id", 0))
+        for p in posts:
+            if int(p.get("id", -1)) == pid:
+                p["content"] = improved_content
+                if result.get("hashtags"):
+                    p["hashtags"] = result.get("hashtags")
+                break
+        _save_posts(posts)
+        console.print(f"[{C_SUCC}]Draft #{pid} updated successfully![/{C_SUCC}]")
+    elif action == "2":
+        posts = _load_posts()
+        new_pid = _next_id(posts)
+        now = date.today().isoformat()
+        new_post = {
+            "id": new_pid,
+            "title": f"Improved: {post.get('title')}",
+            "content": improved_content,
+            "status": "draft",
+            "created_at": now,
+            "published_at": None,
+            "source": "ai_variation",
+            "hashtags": result.get("hashtags", post.get("hashtags", [])),
+            "image_prompts": post.get("image_prompts", []),
+        }
+        posts.append(new_post)
+        _save_posts(posts)
+        store.record_generation(new_pid, new_post["title"], source="ai_variation")
+        console.print(f"[{C_SUCC}]Saved as new draft #{new_pid}![/{C_SUCC}]")
+
+
+def _cmd_generate_variations(post: dict, store: Store, nim_client: NIMClient) -> None:
+    """Generate and display alternative angles of the post, allowing saving them."""
+    console.print()
+    with console.status(
+        f"[bold {C_AI}]Generating alternative variations...[/bold {C_AI}]",
+        spinner="dots",
+    ):
+        try:
+            variations = nim_client.generate_variations(post["content"])
+        except Exception as exc:
+            console.print(f"[{C_ERR}]Variations call failed: {exc}[/{C_ERR}]")
+            return
+
+    if not variations or (isinstance(variations, list) and len(variations) == 0):
+        console.print(f"[{C_ERR}]No variations generated.[/{C_ERR}]")
+        return
+
+    # Check for error
+    if isinstance(variations, dict) and "error" in variations:
+        console.print(f"[{C_ERR}]Could not generate variations:[/{C_ERR}] {variations.get('error')}")
+        return
+
+    console.print(f"\n[bold {C_HEAD}]Generated Variations[/bold {C_HEAD}]")
+    for idx, var in enumerate(variations, 1):
+        style = var.get("style", "N/A")
+        title = var.get("title", f"Variation {idx}")
+        content = var.get("content", "")
+        
+        console.print(
+            Panel(
+                Markdown(content),
+                title=f"[bold {C_AI}]Variation {idx} ({style}) — {title}[/bold {C_AI}]",
+                border_style=C_AI,
+                padding=(1, 2)
+            )
+        )
+
+    # Ask to save one of them
+    choices = [str(i) for i in range(1, len(variations) + 1)] + [""]
+    save_idx_str = Prompt.ask(
+        "\nEnter variation number (1-2) to save as a draft (or Enter to cancel)",
+        choices=choices,
+        show_choices=False,
+        default="",
+        console=console
+    ).strip()
+
+    if not save_idx_str:
+        return
+
+    idx = int(save_idx_str) - 1
+    selected_var = variations[idx]
+    
+    posts = _load_posts()
+    new_pid = _next_id(posts)
+    now = date.today().isoformat()
+    new_post = {
+        "id": new_pid,
+        "title": selected_var.get("title") or f"Var: {post.get('title')}",
+        "content": selected_var.get("content", ""),
+        "status": "draft",
+        "created_at": now,
+        "published_at": None,
+        "source": "ai_variation",
+        "hashtags": post.get("hashtags", []),
+        "image_prompts": post.get("image_prompts", []),
+    }
+    posts.append(new_post)
+    _save_posts(posts)
+    store.record_generation(new_pid, new_post["title"], source="ai_variation")
+    console.print(f"[{C_SUCC}]Variation #{idx+1} successfully saved as draft #{new_pid}![/{C_SUCC}]")
+
+
+def _cmd_image_options(post: dict, store: Store, nim_client: NIMClient) -> None:
+    """Generate image prompts for a post and let the user generate a local PNG."""
+    console.print()
+    with console.status(
+        f"[bold {C_AI}]Creating creative image prompts...[/bold {C_AI}]",
+        spinner="dots",
+    ):
+        try:
+            prompts = nim_client.generate_image_prompts(post["content"])
+        except Exception as exc:
+            console.print(f"[{C_ERR}]Image prompts call failed: {exc}[/{C_ERR}]")
+            return
+
+    if not prompts or (isinstance(prompts, list) and len(prompts) == 0):
+        console.print(f"[{C_ERR}]No image prompts generated.[/{C_ERR}]")
+        return
+
+    if isinstance(prompts, dict) and "error" in prompts:
+        console.print(f"[{C_ERR}]Could not generate prompts:[/{C_ERR}] {prompts.get('error')}")
+        return
+
+    console.print(f"\n[bold {C_HEAD}]Suggested AI Image Prompts[/bold {C_HEAD}]")
+    for idx, prompt_text in enumerate(prompts, 1):
+        console.print(f"  [bold cyan]{idx}.[/bold cyan] {prompt_text}\n")
+
+    if not Confirm.ask("Would you like to generate a local image from one of these prompts?", default=False, console=console):
+        # Save prompts to draft instead
+        if Confirm.ask("Save these prompts to the draft's record?", default=True, console=console):
+            posts = _load_posts()
+            pid = int(post.get("id", 0))
+            for p in posts:
+                if int(p.get("id", -1)) == pid:
+                    p["image_prompts"] = prompts
+                    break
+            _save_posts(posts)
+            console.print(f"[{C_SUCC}]Image prompts saved to draft #{pid}.[/{C_SUCC}]")
+        return
+
+    choices = [str(i) for i in range(1, len(prompts) + 1)]
+    prompt_choice = Prompt.ask("Choose prompt (1-3)", choices=choices, console=console)
+    selected_prompt = prompts[int(prompt_choice) - 1]
+
+    filename = Prompt.ask("Save image as (e.g. post_image.png)", default=f"post_{post.get('id')}.png", console=console).strip()
+    if not filename:
+        filename = f"post_{post.get('id')}.png"
+
+    save_path = _SCRIPT_DIR / filename
+
+    console.print()
+    with console.status(
+        f"[bold {C_AI}]Calling Stable Diffusion via NVIDIA NIM...[/bold {C_AI}]",
+        spinner="dots",
+    ):
+        try:
+            res = nim_client.generate_image(selected_prompt, str(save_path))
+        except Exception as exc:
+            console.print(f"[{C_ERR}]Image generation call failed: {exc}[/{C_ERR}]")
+            return
+
+    if res.get("success"):
+        console.print(f"[{C_SUCC}]Success! Image generated and saved to:[/{C_SUCC}] [bold cyan]{save_path}[/bold cyan]")
+    else:
+        console.print(f"[{C_ERR}]Image generation failed:[/{C_ERR}] {res.get('error', 'Unknown error')}")
+        if "note" in res:
+            console.print(f"\n[{C_WARN}]Note:[/{C_WARN}]\n{res['note']}")
+
+
+def _cmd_analyze_profile(store: Store, nim_client: NIMClient, default_image_path: Optional[str] = None) -> None:
+    """Analyze a LinkedIn profile screenshot using Llama Vision and display detailed recommendations."""
+    console.print(Panel("[bold]LinkedIn Profile Screenshot Analyzer[/bold]", border_style=C_HEAD))
+    console.print()
+
+    if default_image_path:
+        image_path = default_image_path
+    else:
+        image_path = Prompt.ask(
+            "Enter the path to your LinkedIn profile screenshot (PNG/JPG/WEBP)",
+            console=console,
+        ).strip()
+    if not image_path:
+        console.print(f"[{C_WARN}]No path entered — cancelling.[/{C_WARN}]")
+        return
+
+    path = Path(image_path)
+    if not path.exists() or not path.is_file():
+        console.print(f"[{C_ERR}]File not found at: {image_path}[/{C_ERR}]")
+        return
+
+    if path.suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp", ".gif"):
+        console.print(f"[{C_ERR}]Unsupported image format. Please use PNG, JPG, JPEG, WEBP, or GIF.[/{C_ERR}]")
+        return
+
+    console.print()
+    with console.status(
+        f"[bold {C_AI}]Uploading and analyzing profile screenshot via Llama Vision...[/bold {C_AI}]",
+        spinner="dots",
+    ):
+        try:
+            result = nim_client.analyze_profile_screenshot(str(path))
+        except Exception as exc:
+            console.print(f"[{C_ERR}]Analysis failed: {exc}[/{C_ERR}]")
+            return
+
+    if not result or "error" in result:
+        console.print(f"[{C_ERR}]Could not analyze profile:[/{C_ERR}] {result.get('error', 'Unknown error')}")
+        if "raw_response" in result:
+            console.print(Panel(result["raw_response"], title="Raw AI Response"))
+        return
+
+    # Visual layout of analysis results
+    overall_score = result.get("overall_score", 0.0)
+    score_pct = int(float(overall_score) * 10)
+    # Simple ASCII bar
+    score_bar = "█" * (score_pct // 10) + "░" * (10 - (score_pct // 10))
+    console.print(
+        Panel(
+            f"[bold magenta]Overall Profile Score: {overall_score}/10[/bold magenta]\n[cyan]{score_bar}[/cyan]",
+            border_style=C_AI,
+            expand=True
+        )
+    )
+    console.print()
+
+    sections = result.get("sections", {})
+    if sections:
+        table = Table(title="[bold cyan]Section Breakdown[/bold cyan]", box=box.ROUNDED, expand=True)
+        table.add_column("Section", style="bold", width=15)
+        table.add_column("Score", justify="right", style="bold magenta", width=6)
+        table.add_column("Observations", width=30)
+        table.add_column("Recommended Fix", style=C_SUCC)
+
+        for sec_key, sec_data in sections.items():
+            sec_name = sec_key.replace("_", " ").capitalize()
+            table.add_row(
+                sec_name,
+                f"{sec_data.get('score', 'N/A')}/10",
+                str(sec_data.get("note", "")),
+                str(sec_data.get("suggestion", ""))
+            )
+        console.print(table)
+        console.print()
+
+    priorities = result.get("top_priorities", [])
+    if priorities:
+        console.print(
+            Panel(
+                "\n".join(f"• {p}" for p in priorities),
+                title="[bold red]🚨 Top Priorities[/bold red]",
+                border_style="red",
+                expand=True
+            )
+        )
+        console.print()
+
+    wins = result.get("quick_wins", [])
+    if wins:
+        console.print(
+            Panel(
+                "\n".join(f"• {w}" for w in wins),
+                title="[bold green]⚡ Quick Wins (Under 5 mins)[/bold green]",
+                border_style="green",
+                expand=True
+            )
+        )
+        console.print()
+
+    # Offer to update profile
+    if Confirm.ask("Would you like to update your LinkCommand profile settings based on these findings?", default=True, console=console):
+        while True:
+            console.print("\n[bold]Which field would you like to update?[/bold]")
+            console.print("  [bold cyan]1[/bold cyan]: Name")
+            console.print("  [bold cyan]2[/bold cyan]: Role / Headline")
+            console.print("  [bold cyan]3[/bold cyan]: Industry / Field")
+            console.print("  [bold cyan]4[/bold cyan]: Preferred Tone")
+            console.print("  [bold cyan]5[/bold cyan]: Goals")
+            console.print("  [bold cyan]b[/bold cyan]: Back to main menu")
+
+            field_choice = Prompt.ask("Select an option", choices=["1", "2", "3", "4", "5", "b"], default="b", console=console)
+            if field_choice == "b":
+                break
+
+            field_map = {
+                "1": "name",
+                "2": "role",
+                "3": "field",
+                "4": "tone",
+                "5": "goals",
+            }
+            field = field_map[field_choice]
+            current_val = store.profile.get(field, "")
+            
+            new_val = Prompt.ask(
+                f"Enter new value for [bold]{field}[/bold]",
+                default=str(current_val),
+                console=console
+            ).strip()
+
+            if field == "goals":
+                new_val = [x.strip() for x in new_val.split(",") if x.strip()]
+
+            store.set_profile_field(field, new_val)
+            
+            # Sync back to nim_config.json profile_context as well
+            cfg = _load_nim_config()
+            cfg.setdefault("profile_context", {})[field] = new_val
+            _save_nim_config(cfg)
+            
+            # Sync in-memory nim_client profile if initialized
+            if nim_client is not None:
+                nim_client.profile[field] = new_val
+
+            console.print(f"[{C_SUCC}]Updated {field} successfully![/{C_SUCC}]")
+
 
 def _suggest_hashtags(content: str) -> list[str]:
     """Extract hashtag candidates from keywords in the content using whole-word boundaries."""
@@ -1098,14 +1490,17 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("command", nargs="?", default=None,
                    help="Sub-command: generate | list | view | publish | "
-                        "templates | week | stats | settings | write | help")
+                        "templates | week | stats | settings | write | help | "
+                        "improve | variations | image | analyze-profile")
     p.add_argument("--topic", "-t", default="",
                    help="Topic for AI generation")
     p.add_argument("--style", "-s", default="",
                    choices=["tip", "story", "opinion", "question", ""],
                    help="Writing style for AI generation")
     p.add_argument("--id", type=int, default=None,
-                   help="Post ID (for view / publish / delete)")
+                   help="Post ID (for view / publish / delete / improve / variations / image)")
+    p.add_argument("--image", default="",
+                   help="Image path for profile screenshot analysis")
     p.add_argument("--non-interactive", action="store_true",
                    help="Skip prompts; use defaults")
     return p
@@ -1136,6 +1531,12 @@ def _interactive_menu(store: Store, nim_client: Optional[NIMClient]) -> None:
                 f"  [yellow]2.[/yellow]  📝  Write Manually\n"
             )
 
+        profile_block = (
+            f"  10. 🔍  Analyze Profile Screenshot\n"
+            if nim_client is not None
+            else f"  10. 🔍  Analyze Profile Screenshot  [dim](requires AI)[/dim]\n"
+        )
+
         menu_text = (
             f"{ai_block}"
             f"\n[bold {C_HEAD}]Library & Tools[/bold {C_HEAD}]\n"
@@ -1143,12 +1544,13 @@ def _interactive_menu(store: Store, nim_client: Optional[NIMClient]) -> None:
             f"  4.  📅  Weekly Planner\n"
             f"  5.  📊  My Stats\n"
             f"  6.  📋  Templates\n"
-    f"\n[bold {C_HEAD}]Other[/bold {C_HEAD}]\n"
-    f"  9.  ✏️   Help / How to use\n"
-    f"\n[bold {C_HEAD}]Settings[/bold {C_HEAD}]\n"
-    f"  7.  ⚙️   Settings\n"
-    f"  8.  🚪  Exit\n"
-)
+            f"{profile_block}"
+            f"\n[bold {C_HEAD}]Other[/bold {C_HEAD}]\n"
+            f"  9.  ✏️   Help / How to use\n"
+            f"\n[bold {C_HEAD}]Settings[/bold {C_HEAD}]\n"
+            f"  7.  ⚙️   Settings\n"
+            f"  8.  🚪  Exit\n"
+        )
         console.print(
             Panel(
                 menu_text,
@@ -1159,7 +1561,7 @@ def _interactive_menu(store: Store, nim_client: Optional[NIMClient]) -> None:
         )
 
         # Dynamic choices list for Prompt.
-        choices = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
+        choices = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
         label = "Choose"
         try:
             raw = Prompt.ask(
@@ -1170,7 +1572,7 @@ def _interactive_menu(store: Store, nim_client: Optional[NIMClient]) -> None:
             )
         except Exception:
             # Rich may raise on bad terminal; fall back.
-            raw = console.input(f"{label} (1-9): ").strip()
+            raw = console.input(f"{label} (1-10): ").strip()
         choice = raw.strip()
 
         console.clear()
@@ -1200,6 +1602,13 @@ def _interactive_menu(store: Store, nim_client: Optional[NIMClient]) -> None:
             break
         elif choice == "9":
             _cmd_help()
+        elif choice == "10":
+            if nim_client is None:
+                console.print(
+                    f"[{C_WARN}]AI is off.[/{C_WARN}]  Go to Settings to turn it on first."
+                )
+            else:
+                _cmd_analyze_profile(store, nim_client)
         else:
             console.print(f"[{C_WARN}]Unknown option '{choice}'.[/{C_WARN}]")
 
@@ -1308,6 +1717,58 @@ def main() -> None:
 
     if cmd == "stats":
         _cmd_stats(store, nim_client)
+        return
+
+    if cmd == "improve":
+        if nim_client is None:
+            console.print(f"[{C_ERR}]AI is off.[/{C_ERR}]  Go to Settings or set API Key to enable.")
+            return
+        pid = known.id
+        if pid is None:
+            console.print(f"[{C_ERR}]--id required.[/{C_ERR}]")
+            return
+        post = next((p for p in _load_posts() if int(p.get("id", -1)) == pid), None)
+        if not post:
+            console.print(f"[{C_ERR}]Post #{pid} not found.[/{C_ERR}]")
+            return
+        _cmd_improve_post(post, store, nim_client)
+        return
+
+    if cmd == "variations":
+        if nim_client is None:
+            console.print(f"[{C_ERR}]AI is off.[/{C_ERR}]  Go to Settings or set API Key to enable.")
+            return
+        pid = known.id
+        if pid is None:
+            console.print(f"[{C_ERR}]--id required.[/{C_ERR}]")
+            return
+        post = next((p for p in _load_posts() if int(p.get("id", -1)) == pid), None)
+        if not post:
+            console.print(f"[{C_ERR}]Post #{pid} not found.[/{C_ERR}]")
+            return
+        _cmd_generate_variations(post, store, nim_client)
+        return
+
+    if cmd == "image":
+        if nim_client is None:
+            console.print(f"[{C_ERR}]AI is off.[/{C_ERR}]  Go to Settings or set API Key to enable.")
+            return
+        pid = known.id
+        if pid is None:
+            console.print(f"[{C_ERR}]--id required.[/{C_ERR}]")
+            return
+        post = next((p for p in _load_posts() if int(p.get("id", -1)) == pid), None)
+        if not post:
+            console.print(f"[{C_ERR}]Post #{pid} not found.[/{C_ERR}]")
+            return
+        _cmd_image_options(post, store, nim_client)
+        return
+
+    if cmd in ("analyze-profile", "analyze"):
+        if nim_client is None:
+            console.print(f"[{C_ERR}]AI is off.[/{C_ERR}]  Go to Settings or set API Key to enable.")
+            return
+        _cmd_analyze_profile(store, nim_client, default_image_path=known.image or None)
         return
 
     if cmd in ("settings", "setup"):
