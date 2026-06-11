@@ -505,77 +505,105 @@ def _cmd_view_drafts(store: Store) -> None:
         _cmd_image_options(post, store, nim_client)
 
 
-def _cmd_weekly_planner(store: Store) -> None:
+def _cmd_weekly_planner(store: Store, interactive: bool = True) -> None:
     """Show how many posts this week (Mon–Sun) — useful for pacing."""
     posts = _load_posts()
     today  = date.today()
-    week_start = today - timedelta(days=today.weekday())
-    week_dates = [week_start + timedelta(days=i) for i in range(7)]
+    current_week_start = today - timedelta(days=today.weekday())
+    selected_week_start = current_week_start
 
-    # Build a day → list-of-posts map for the *current* week ending today
-    # plus the previous week for comparison.
-    def _week_map(start: date) -> dict[str, list[dict]]:
-        end = start + timedelta(days=6)
-        return {
-            (start + timedelta(days=i)).isoformat(): [
-                p for p in posts
-                if p.get("created_at") == (start + timedelta(days=i)).isoformat()
-            ]
-            for i in range(7)
-        }
+    while True:
+        week_dates = [selected_week_start + timedelta(days=i) for i in range(7)]
 
-    this_week_map = _week_map(week_start)
-    prev_week_map = _week_map(week_start - timedelta(days=7))
+        # Build a day → list-of-posts map for the selected week
+        def _week_map(start: date) -> dict[str, list[dict]]:
+            return {
+                (start + timedelta(days=i)).isoformat(): [
+                    p for p in posts
+                    if p.get("created_at") == (start + timedelta(days=i)).isoformat()
+                ]
+                for i in range(7)
+            }
 
-    day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        this_week_map = _week_map(selected_week_start)
+        day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-    table = Table(
-        title=f"[bold {C_HEAD}]Weekly Planner — week of {week_start.isoformat()}[/bold {C_HEAD}]",
-        box=box.ROUNDED,
-        expand=True,
-        padding=(0, 1),
-    )
-    table.add_column("Day", style="bold")
-    table.add_column("Date", style=C_DIM)
-    table.add_column("Posts", justify="center")
-    table.add_column("Published", justify="center")
-    table.add_column("Notes", style=C_DIM)
-
-    for i, day_date in enumerate(week_dates):
-        ds       = day_date.isoformat()
-        day_posts = this_week_map.get(ds, [])
-        drafts   = [p for p in day_posts if p.get("published_at") is None]
-        pub      = [p for p in day_posts if p.get("published_at") is not None]
-        count    = len(day_posts)
-        pub_n    = len(pub)
-        status   = "✅" if count > 0 else ("📅" if day_date >= today else "—")
-        table.add_row(
-            day_names[i],
-            ds[5:],      # MM-DD
-            f"{count} {'📝' if drafts else ''}",
-            str(pub_n),
-            Text("") if not day_posts else f"{drafts[0]['title'][:40]}…",
+        table = Table(
+            title=f"[bold {C_HEAD}]Weekly Planner — week of {selected_week_start.isoformat()}[/bold {C_HEAD}]",
+            box=box.ROUNDED,
+            expand=True,
+            padding=(0, 1),
         )
+        table.add_column("Day", style="bold")
+        table.add_column("Date", style=C_DIM)
+        table.add_column("Posts", justify="center")
+        table.add_column("Published", justify="center")
+        table.add_column("Notes", style=C_DIM)
 
-    console.print()
-    console.print(table)
+        for i, day_date in enumerate(week_dates):
+            ds       = day_date.isoformat()
+            day_posts = this_week_map.get(ds, [])
+            drafts   = [p for p in day_posts if p.get("published_at") is None]
+            pub      = [p for p in day_posts if p.get("published_at") is not None]
+            count    = len(day_posts)
+            pub_n    = len(pub)
+            
+            note_text = ""
+            if day_posts:
+                note_text = f"{day_posts[0].get('title', 'Untitled')[:40]}…"
+                
+            table.add_row(
+                day_names[i],
+                ds[5:],      # MM-DD
+                f"{count} {'📝' if drafts else ''}",
+                str(pub_n),
+                note_text,
+            )
 
-    # Frequencies from profile.
-    freq = store.profile.get("posting_frequency", "3x/week").lower()
-    target_map = {"daily": 7, "3x/week": 3, "weekly": 1}
-    target = target_map.get(freq, 3)
-    current_week_count = sum(len(v) for v in this_week_map.values())
+        if interactive:
+            console.clear()
+            console.print()
+        console.print(table)
 
-    remaining_days = 7 - today.weekday() - 1   # days left incl. today
-    if remaining_days > 0 and current_week_count < target:
-        need = target - current_week_count
-        console.print(
-            f"\n[{C_WARN}]Goal: {target} posts/week ({freq}).[/{C_WARN}]  "
-            f"{current_week_count} done.  "
-            f"~[bold]{need}[/bold] more needed over the next {remaining_days} day(s). "
-            f"Use [bold magenta]Generate[/bold magenta] to create one!"
-        )
-    console.print()
+        # Frequencies from profile.
+        freq = store.profile.get("posting_frequency", "3x/week").lower()
+        target_map = {"daily": 7, "3x/week": 3, "weekly": 1}
+        target = target_map.get(freq, 3)
+        current_week_count = sum(len(v) for v in this_week_map.values())
+
+        if selected_week_start == current_week_start:
+            remaining_days = 7 - today.weekday() - 1   # days left incl. today
+            if remaining_days > 0 and current_week_count < target:
+                need = target - current_week_count
+                console.print(
+                    f"\n[{C_WARN}]Goal: {target} posts/week ({freq}).[/{C_WARN}]  "
+                    f"{current_week_count} done.  "
+                    f"~[bold]{need}[/bold] more needed over the next {remaining_days} day(s). "
+                    f"Use [bold magenta]Generate[/bold magenta] to create one!"
+                )
+        else:
+            console.print(f"\n[{C_HEAD}]Goal: {target} posts/week ({freq}).[/{C_HEAD}]  "
+                          f"{current_week_count} posts generated in this week.")
+        console.print()
+
+        if not interactive:
+            break
+
+        console.print("[bold]Options:[/bold]")
+        console.print("  [bold cyan]p[/bold cyan] : Previous Week")
+        console.print("  [bold cyan]n[/bold cyan] : Next Week")
+        console.print("  [bold cyan]t[/bold cyan] : Jump to Current Week")
+        console.print("  [bold cyan]Enter[/bold cyan] : Back to main menu")
+
+        nav = Prompt.ask("\nChoose option", choices=["p", "n", "t", ""], default="", console=console).strip().lower()
+        if not nav:
+            break
+        elif nav == "p":
+            selected_week_start -= timedelta(days=7)
+        elif nav == "n":
+            selected_week_start += timedelta(days=7)
+        elif nav == "t":
+            selected_week_start = current_week_start
 
 
 def _cmd_stats(store: Store, nim_client: Optional[NIMClient]) -> None:
@@ -1712,7 +1740,7 @@ def main() -> None:
         return
 
     if cmd == "week":
-        _cmd_weekly_planner(store)
+        _cmd_weekly_planner(store, interactive=not known.non_interactive)
         return
 
     if cmd == "stats":
